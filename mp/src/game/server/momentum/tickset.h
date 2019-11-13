@@ -2,6 +2,8 @@
 
 #include "cbase.h"
 
+#define TICK_EPSILON 0.001f
+
 struct Tickrate
 {
     float fTickRate;
@@ -25,7 +27,7 @@ struct Tickrate
     }
     bool operator ==(const Tickrate &other) const
     {
-        return (CloseEnough(other.fTickRate, fTickRate, FLT_EPSILON)
+        return (CloseEnough(other.fTickRate, fTickRate, TICK_EPSILON)
             && !Q_strcmp(other.sType, sType));
     }
 };
@@ -37,7 +39,9 @@ public:
     enum
     {
         TICKRATE_66 = 0,
-        TICKRATE_100 = 1    
+        TICKRATE_85 = 1,
+        TICKRATE_100 = 2,
+        TICKRATE_128 = 3
     };
 
     static bool TickInit();

@@ -13,7 +13,9 @@
 float* TickSet::interval_per_tick = nullptr;
 const Tickrate TickSet::s_DefinedRates[] = {
     { 0.015f, "66" },
-    { 0.01f, "100" }
+    { 0.01171875f, "85" },
+    { 0.01f, "100" },
+    { 0.0078125f, "128" }
 };
 Tickrate TickSet::m_trCurrent = s_DefinedRates[TICKRATE_66];
 bool TickSet::m_bInGameUpdate = false;
@@ -113,25 +115,18 @@ bool TickSet::SetTickrate(int gameMode)
 
 bool TickSet::SetTickrate(float tickrate)
 {
-    if (!CloseEnough(m_trCurrent.fTickRate, tickrate, FLT_EPSILON))
-    {
-        Tickrate tr;
-        if (CloseEnough(tickrate, 0.01f, FLT_EPSILON)) tr = s_DefinedRates[TICKRATE_100];
-        else if (CloseEnough(tickrate, 0.015f, FLT_EPSILON)) tr = s_DefinedRates[TICKRATE_66];
-        else
-        {
-            tr.fTickRate = tickrate;
-            tr.sType = "CUSTOM";
-        }
-        return SetTickrate(tr);
-    }
-    
-    return false;
+    Tickrate tr(tickrate, "CUSTOM");
+    if (tr == m_trCurrent) return false; // Check 2
+    else if (tr == s_DefinedRates[TICKRATE_66]) tr = s_DefinedRates[TICKRATE_66];
+    else if (tr == s_DefinedRates[TICKRATE_85]) tr = s_DefinedRates[TICKRATE_85];
+    else if (tr == s_DefinedRates[TICKRATE_100]) tr = s_DefinedRates[TICKRATE_100];
+    else if (tr == s_DefinedRates[TICKRATE_128]) tr = s_DefinedRates[TICKRATE_128];
+    return SetTickrate(tr);
 }
 
 bool TickSet::SetTickrate(Tickrate trNew)
 {
-    if (trNew == m_trCurrent)
+    if (trNew == m_trCurrent) // Check 3
     {
         DevLog("Tickrate not changed: new == current\n");
         return false;
@@ -148,19 +143,19 @@ bool TickSet::SetTickrate(Tickrate trNew)
             engine->ClientCommand(pPlayer->edict(), "reload");
         }
         DevLog("Interval per tick set to %f\n", trNew.fTickRate);
+        DevLog("Tickrate set to %f\n", 1.0f / trNew.fTickRate);
         return true;
     }
     Warning("Failed to set tickrate: bad hook\n");
     return false;
 }
 
-static void OnTickRateChange(IConVar *var, const char* pOldValue, float fOldValue)
+static void OnIntervalPerTickChange(IConVar *var, const char* pOldValue, float fOldValue)
 {
     ConVarRef tr(var);
     float tickrate = tr.GetFloat();
-    if (CloseEnough(tickrate, TickSet::GetTickrate(), FLT_EPSILON)) return;
+    if (CloseEnough(tickrate, TickSet::GetTickrate(), TICK_EPSILON)) return; // Check 1
     //MOM_TODO: Re-implement the bound
-
     /*
     if (toCheck < 0.01f || toCheck > 0.015f)
     {
@@ -171,6 +166,26 @@ static void OnTickRateChange(IConVar *var, const char* pOldValue, float fOldValu
     TickSet::SetTickrate(tickrate);
 }
 
+static void OnTickrateChange(IConVar* var, const char* pOldValue, float fOldValue)
+{
+    ConVarRef tr(var);
+    float tickrate = 1.0f / tr.GetFloat();
+    if (CloseEnough(tickrate, TickSet::GetTickrate(), TICK_EPSILON)) return; // Check 1
+    //MOM_TODO: Re-implement the bound
+    /*
+    if (toCheck < 66.66f || toCheck > 100.0f)
+    {
+        Warning("Cannot set a tickrate any lower than 66 or higher than 100!\n");
+        var->SetValue(((ConVar*) var)->GetDefault());
+        return;
+    }*/
+    TickSet::SetTickrate(tickrate);
+}
+
 static ConVar intervalPerTick("sv_interval_per_tick", "0.015", 0,
                               "Changes the interval per tick of the engine. Interval per tick is 1/tickrate, so 100 tickrate = 0.01",
-                              true, 0.001f, true, 0.1f, OnTickRateChange);
+                              true, 0.001f, true, 0.1f, OnIntervalPerTickChange);
+
+static ConVar tickrate("sv_tickrate", "66", 0,
+                       "Changes the tickrate of the engine. Alternative to sv_interval_per_tick",
+                       true, 10.0f, true, 1000.0f, OnTickrateChange);
