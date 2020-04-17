@@ -35,7 +35,12 @@ class CBurnLevelProxy : public CResultProxy
 {
   public:
     bool Init(IMaterial *pMaterial, KeyValues *pKeyValues) { return true; }
-    void OnBind(void *pC_BaseEntity) {}
+    void OnBind(void *pC_BaseEntity)
+    {
+#ifdef _WIN32
+        m_pResult->SetFloatValue(0.0f);
+#endif
+    }
     IMaterial *GetMaterial() { return nullptr; }
 };
 
